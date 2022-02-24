@@ -27,6 +27,16 @@
     "@aws-cdk/core:target-partitions": [
       "aws",
       "aws-cn"
-    ]
+    ],
+    "ENVIRONMENTS": {
+      "dev": {
+        "manditoryTags": [
+          {
+            "name": "app",
+            "value": "AWS-CDK-Workstations-API"
+          }
+        ]
+      }
+    }
   }
 }
