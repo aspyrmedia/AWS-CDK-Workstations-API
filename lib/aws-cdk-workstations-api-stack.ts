@@ -1,6 +1,7 @@
 import { Construct } from "constructs";
 import { NodejsFunction } from "aws-cdk-lib/aws-lambda-nodejs";
 import { Stack, StackProps, CfnOutput } from "aws-cdk-lib";
+import * as cdk from "aws-cdk-lib";
 import * as appsync from "aws-cdk-lib/aws-appsync";
 import * as ec2 from "aws-cdk-lib/aws-ec2";
 import * as cognito from "aws-cdk-lib/aws-cognito";
@@ -8,6 +9,7 @@ import * as dynamo from "aws-cdk-lib/aws-dynamodb";
 import * as iam from "aws-cdk-lib/aws-iam";
 import * as lambda from "aws-cdk-lib/aws-lambda";
 import * as path from "path";
+import * as ssm from 'aws-cdk-lib/aws-ssm'
 // import * as sqs from 'aws-cdk-lib/aws-sqs';
 import { camelCase } from "camel-case";
 
@@ -74,25 +76,46 @@ export class AwsCdkWorkstationsApiStack extends Stack {
       {
         entry: path.join(__dirname, "..", "appsync-lambdas", "main.ts"),
         handler: "handler",
-        functionName: "TodoLambda",
+        functionName: camelCase(`${stackName}-Todo-Lambda-Function`),
         runtime: lambda.Runtime.NODEJS_14_X,
       }
     );
 
-    // Create db tables
-    const todoTable = new dynamo.Table(
-      this,
-      camelCase(`${stackName}-Todo-DB`),
-      {
-        tableName: camelCase(`${stackName}-Todos`),
-        billingMode: dynamo.BillingMode.PAY_PER_REQUEST,
-        partitionKey: {
-          name: "id",
-          type: dynamo.AttributeType.STRING,
-        },
-        // removalPolicy: RemovalPolicy.DESTROY,
-      }
-    );
+    // const shouldCreateTable = ssm.StringParameter.fromStringParameterAttributes(
+    //   this,
+    //   'ShouldCreateTable',
+    //   {
+    //     parameterName: `/AwsCdkWorkstationsApiStack/Config/ShouldCreateTable`
+    //   }
+    // ).stringValue
+
+    // const shouldCreateTableCondition = new cdk.CfnCondition(
+    //   this,
+    //   'ShouldCreateBucketCondition',
+    //   {
+    //     expression: cdk.Fn.conditionEquals(shouldCreateTable, 'true')
+    //   }
+    // )
+
+    // // Create db tables
+    // const todoTable = new dynamo.Table(
+    //   this,
+    //   camelCase(`${stackName}-Todo-DB`),
+    //   {
+    //     tableName: camelCase(`${stackName}-Todos`),
+    //     billingMode: dynamo.BillingMode.PAY_PER_REQUEST,
+    //     partitionKey: {
+    //       name: "id",
+    //       type: dynamo.AttributeType.STRING,
+    //     },
+    //     // removalPolicy: RemovalPolicy.DESTROY,
+    //   }
+    // );
+    // (todoTable.node.defaultChild as dynamo.CfnTable).cfnOptions.condition = shouldCreateTableCondition
+
+    // const importedOrCreatedTable = dynamo.Table.fromTableAttributes(this, 'ImportedOrCreatedTable', {
+    //   tableName: camelCase(`${stackName}-Todo-DB`),
+    // })
 
     // Create Graphql
     const appsyncLoggingServiceRole = new iam.Role(
@@ -139,26 +162,26 @@ export class AwsCdkWorkstationsApiStack extends Stack {
       }
     );
 
-    const graphqlApiSchema = new appsync.CfnGraphQLSchema(
-      this,
-      camelCase(`${stackName}-Schema`),
-      {
-        apiId: graphqlApi.attrApiId,
-        definition: `
-          schema {
-            query:Query
-          }
-          type Query {
-            listTodo: [Todo] @aws_cognito_user_pools
-          }
-          type Todo @aws_cognito_user_pools {
-            id: ID!
-            name: String!
-            description: String!
-          }
-        `,
-      }
-    );
+    // const graphqlApiSchema = new appsync.CfnGraphQLSchema(
+    //   this,
+    //   camelCase(`${stackName}-Schema`),
+    //   {
+    //     apiId: graphqlApi.attrApiId,
+    //     definition: `
+    //       schema {
+    //         query:Query
+    //       }
+    //       type Query {
+    //         listWorkstationInstances: [WorkstationInstance] @aws_cognito_user_pools
+    //       }
+    //       type WorkstationInstance @aws_cognito_user_pools {
+    //         id: ID!
+    //         name: String!
+    //         description: String!
+    //       }
+    //     `,
+    //   }
+    // );
 
     const appsyncDynamoRole = new iam.Role(
       this,
@@ -181,7 +204,7 @@ export class AwsCdkWorkstationsApiStack extends Stack {
       camelCase(`${stackName}-lbda-src`),
       {
         apiId: graphqlApi.attrApiId,
-        name: "TodoLambdaDataSourceName",
+        name: camelCase(`${stackName}-lbda-src-name`),
         type: "AWS_LAMBDA",
         lambdaConfig: {
           lambdaFunctionArn: lambdaFunc.functionArn,
@@ -190,17 +213,17 @@ export class AwsCdkWorkstationsApiStack extends Stack {
       }
     );
 
-    const listTodoResolver = new appsync.CfnResolver(
-      this,
-      camelCase(`${stackName}-list`),
-      {
-        apiId: graphqlApi.attrApiId,
-        typeName: "Query",
-        fieldName: "listTodo",
-        dataSourceName: lambdaDataSource.name,
-      }
-    );
+    // const listTodoResolver = new appsync.CfnResolver(
+    //   this,
+    //   camelCase(`${stackName}-list`),
+    //   {
+    //     apiId: graphqlApi.attrApiId,
+    //     typeName: "Query",
+    //     fieldName: "listTodo",
+    //     dataSourceName: lambdaDataSource.name,
+    //   }
+    // );
 
-    todoTable.grantFullAccess(lambdaFunc);
+    // importedOrCreatedTable.grantFullAccess(lambdaFunc);
   }
 }
