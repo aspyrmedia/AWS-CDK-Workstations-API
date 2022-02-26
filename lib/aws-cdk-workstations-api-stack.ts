@@ -9,7 +9,8 @@ import * as dynamo from "aws-cdk-lib/aws-dynamodb";
 import * as iam from "aws-cdk-lib/aws-iam";
 import * as lambda from "aws-cdk-lib/aws-lambda";
 import * as path from "path";
-import * as ssm from 'aws-cdk-lib/aws-ssm'
+import * as fs from "fs";
+import * as ssm from "aws-cdk-lib/aws-ssm";
 // import * as sqs from 'aws-cdk-lib/aws-sqs';
 import { camelCase } from "camel-case";
 
@@ -69,15 +70,44 @@ export class AwsCdkWorkstationsApiStack extends Stack {
     //   value: userPoolClient.userPoolClientId,
     // });
 
+    const lambdaFunctionRole = new iam.Role(
+      this,
+      camelCase(`${stackName}-WorkstationInstance-Lambda-Role`),
+      {
+        assumedBy: new iam.ServicePrincipal("lambda.amazonaws.com"),
+      }
+    );
+    lambdaFunctionRole.addManagedPolicy(
+      iam.ManagedPolicy.fromAwsManagedPolicyName(
+        "service-role/AWSLambdaBasicExecutionRole"
+      )
+    );
+    lambdaFunctionRole.addToPolicy(
+      new iam.PolicyStatement({
+        resources: ["*"],
+        actions: ["ec2:*", "dynamodb:*", "lambda:*", "logs:*", "cognito-idp:*"],
+        effect: iam.Effect.ALLOW,
+      })
+    );
+
     // Create lambda for graphql
     const lambdaFunc = new NodejsFunction(
       this,
-      camelCase(`${stackName}-Todo-Lambda`),
+      camelCase(`${stackName}-WorkstationInstance-Lambda`),
       {
-        entry: path.join(__dirname, "..", "appsync-lambdas", "main.ts"),
+        entry: path.join(
+          __dirname,
+          "..",
+          "appsync-lambdas",
+          "WorkstationInstancesDataSource",
+          "main.ts"
+        ),
         handler: "handler",
-        functionName: camelCase(`${stackName}-Todo-Lambda-Function`),
+        functionName: camelCase(
+          `${stackName}-WorkstationInstance-Lambda-Function`
+        ),
         runtime: lambda.Runtime.NODEJS_14_X,
+        role: lambdaFunctionRole,
       }
     );
 
@@ -162,30 +192,81 @@ export class AwsCdkWorkstationsApiStack extends Stack {
       }
     );
 
-    // const graphqlApiSchema = new appsync.CfnGraphQLSchema(
-    //   this,
-    //   camelCase(`${stackName}-Schema`),
-    //   {
-    //     apiId: graphqlApi.attrApiId,
-    //     definition: `
-    //       schema {
-    //         query:Query
-    //       }
-    //       type Query {
-    //         listWorkstationInstances: [WorkstationInstance] @aws_cognito_user_pools
-    //       }
-    //       type WorkstationInstance @aws_cognito_user_pools {
-    //         id: ID!
-    //         name: String!
-    //         description: String!
-    //       }
-    //     `,
-    //   }
-    // );
+    const definitionContent = fs
+      .readFileSync(
+        path.join(
+          __dirname,
+          "..",
+          "graphql",
+          "AWS-CDK-Workstations-API-Schema.graphql"
+        )
+      )
+      .toString();
+    const graphqlApiSchema = new appsync.CfnGraphQLSchema(
+      this,
+      camelCase(`${stackName}-Schema`),
+      {
+        apiId: graphqlApi.attrApiId,
+        definition: definitionContent,
+        // `
+        //   schema {
+        //     query: Query
+        //   }
+
+        //   type Query {
+        //     getWorkstationInstance(id: ID!, name: String!): WorkstationInstance
+        //     listWorkstationInstances(filter: TableWorkstationInstanceFilterInput, limit: Int, nextToken: String): WorkstationInstanceConnection
+        //   }
+
+        //   input TableWorkstationInstanceFilterInput {
+        //     id: TableIDFilterInput
+        //     name: TableStringFilterInput
+        //     status: TableStringFilterInput
+        //   }
+
+        //   input TableStringFilterInput {
+        //     ne: String
+        //     eq: String
+        //     le: String
+        //     lt: String
+        //     ge: String
+        //     gt: String
+        //     contains: String
+        //     notContains: String
+        //     between: [String]
+        //     beginsWith: String
+        //   }
+
+        //   input TableStringFilterInput {
+        //     ne: ID
+        //     eq: ID
+        //     le: ID
+        //     lt: ID
+        //     ge: ID
+        //     gt: ID
+        //     contains: ID
+        //     notContains: ID
+        //     between: [ID]
+        //     beginsWith: ID
+        //   }
+
+        //   type WorkstationInstanceConnection {
+        //     items: [WorkstationInstance]
+        //     nextToken: String
+        //   }
+
+        //   type WorkstationInstance @aws_cognito_user_pools {
+        //     id: ID!
+        //     name: String!
+        //     status: String!
+        //   }
+        // `,
+      }
+    );
 
     const appsyncDynamoRole = new iam.Role(
       this,
-      camelCase(`${stackName}-DB-Role`),
+      camelCase(`${stackName}-EC2-Role`),
       {
         assumedBy: new iam.ServicePrincipal("appsync.amazonaws.com"),
       }
@@ -194,17 +275,17 @@ export class AwsCdkWorkstationsApiStack extends Stack {
     appsyncDynamoRole.addToPolicy(
       new iam.PolicyStatement({
         resources: ["*"],
-        actions: ["dynamodb:*", "lambda:*", "logs:*", "cognito-idp:*"],
+        actions: ["ec2:*", "dynamodb:*", "lambda:*", "logs:*", "cognito-idp:*"],
         effect: iam.Effect.ALLOW,
       })
     );
 
     const lambdaDataSource = new appsync.CfnDataSource(
       this,
-      camelCase(`${stackName}-lbda-src`),
+      camelCase(`${stackName}-lambda-DataSource`),
       {
         apiId: graphqlApi.attrApiId,
-        name: camelCase(`${stackName}-lbda-src-name`),
+        name: camelCase(`${stackName}-lambda-DataSource`),
         type: "AWS_LAMBDA",
         lambdaConfig: {
           lambdaFunctionArn: lambdaFunc.functionArn,
@@ -213,16 +294,16 @@ export class AwsCdkWorkstationsApiStack extends Stack {
       }
     );
 
-    // const listTodoResolver = new appsync.CfnResolver(
-    //   this,
-    //   camelCase(`${stackName}-list`),
-    //   {
-    //     apiId: graphqlApi.attrApiId,
-    //     typeName: "Query",
-    //     fieldName: "listTodo",
-    //     dataSourceName: lambdaDataSource.name,
-    //   }
-    // );
+    const listWorkstationInstancesResolver = new appsync.CfnResolver(
+      this,
+      camelCase(`${stackName}-listWorkstationInstances`),
+      {
+        apiId: graphqlApi.attrApiId,
+        typeName: "Query",
+        fieldName: "listWorkstationInstances",
+        dataSourceName: lambdaDataSource.name,
+      }
+    );
 
     // importedOrCreatedTable.grantFullAccess(lambdaFunc);
   }

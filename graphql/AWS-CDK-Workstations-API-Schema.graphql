@@ -1,0 +1,55 @@
+schema {
+  query: Query
+}
+
+type Query {
+  getWorkstationInstance(id: ID!, name: String!): WorkstationInstance
+  listWorkstationInstances(
+    filter: TableWorkstationInstanceFilterInput
+    limit: Int
+    nextToken: String
+  ): WorkstationInstanceConnection
+}
+
+input TableWorkstationInstanceFilterInput {
+  id: TableIDFilterInput
+  name: TableStringFilterInput
+  status: TableStringFilterInput
+}
+
+input TableStringFilterInput {
+  ne: String
+  eq: String
+  le: String
+  lt: String
+  ge: String
+  gt: String
+  contains: String
+  notContains: String
+  between: [String]
+  beginsWith: String
+}
+
+input TableIDFilterInput {
+  ne: ID
+  eq: ID
+  le: ID
+  lt: ID
+  ge: ID
+  gt: ID
+  contains: ID
+  notContains: ID
+  between: [ID]
+  beginsWith: ID
+}
+
+type WorkstationInstanceConnection {
+  items: [WorkstationInstance]
+  nextToken: String
+}
+
+type WorkstationInstance @aws_cognito_user_pools {
+  id: ID!
+  name: String!
+  status: String!
+}

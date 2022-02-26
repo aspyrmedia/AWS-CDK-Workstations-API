@@ -12,11 +12,14 @@
     "lint": "eslint '*/**/*.{js,ts}' --quiet --fix"
   },
   "devDependencies": {
+    "@aws-sdk/client-ec2": "^3.53.0",
     "@types/jest": "^26.0.10",
     "@types/node": "10.17.27",
     "@typescript-eslint/eslint-plugin": "^5.12.1",
     "@typescript-eslint/parser": "^5.12.1",
     "aws-cdk": "2.13.0",
+    "aws-sdk": "^2.1082.0",
+    "aws-xray-sdk-core": "^3.3.4",
     "change-case": "^4.1.2",
     "eslint": "^8.9.0",
     "eslint-config-prettier": "^8.4.0",

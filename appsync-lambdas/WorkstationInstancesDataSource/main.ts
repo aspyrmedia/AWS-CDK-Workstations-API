@@ -1,14 +1,8 @@
 // import * as AWS from "aws-sdk";
 import WorkstationInstance from "./WorkstationInstance";
-
-// eslint-disable-next-line @typescript-eslint/no-var-requires
-const AWSXRay = require("aws-xray-sdk-core");
-// eslint-disable-next-line @typescript-eslint/no-var-requires
-const AWS = AWSXRay.captureAWS(require("aws-sdk"));
-const ec2 = new AWS.EC2({ apiVersion: "2016-11-15" });
-AWS.config.update({ region: "us-east-2" });
+import { EC2Client, DescribeInstancesCommand } from "@aws-sdk/client-ec2";
 // eslint-disable-next-line @typescript-eslint/no-empty-function
-AWSXRay.setContextMissingStrategy(() => {});
+const client = new EC2Client({ region: "us-east-2" });
 
 type AppSyncEvent = {
   info: {
@@ -22,23 +16,25 @@ type AppSyncEvent = {
 
 exports.handler = async (event: AppSyncEvent) => {
   const listWorkstationInstances = async function () {
-    const params = {
-      DryRun: false,
-    };
+    console.log("ListWorkstationInstances Fired...");
     try {
-      const instances = await ec2.describeInstances(params, (err, data) => {
-        console.log(
-          "Instances Inside Callback:\n" +
-            "Data: \n" +
-            JSON.stringify(typeof data) +
-            "Err:\n" +
-            JSON.stringify(typeof err) +
-            "\n"
-        );
-        return JSON.stringify({ result: "almost" });
+      console.log("ListWorkstationInstances makes call...");
+      const command = new DescribeInstancesCommand({
+        DryRun: false,
       });
+      const response = await client.send(command);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const instances = response.Reservations;
+      // "domain","service","operation","params","httpRequest","startTime","response","_asm","_haltHandlersOnError","_events","emit","__send","send","API_CALL_ATTEMPT","API_CALL_ATTEMPT_RETRY","API_CALL"
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const instanceKeys = JSON.stringify(instances);
+      console.log(`Instances: ${instanceKeys}\nTypeOf: ${typeof instances}`);
+      console.log("ListWorkstationInstances finishes call...");
       // console.log("Instances:\n" + JSON.stringify(instances));
-      return JSON.stringify({ result: "almost2" });
+      return {
+        items: { id: "123456", name: "test", status: "online" },
+        result: "almost2",
+      };
     } catch (err) {
       console.log("EC2 error: ", err);
       return null;
