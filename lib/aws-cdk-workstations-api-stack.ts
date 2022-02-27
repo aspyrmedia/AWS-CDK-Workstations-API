@@ -108,6 +108,7 @@ export class AwsCdkWorkstationsApiStack extends Stack {
         ),
         runtime: lambda.Runtime.NODEJS_14_X,
         role: lambdaFunctionRole,
+        timeout: cdk.Duration.minutes(5),
       }
     );
 

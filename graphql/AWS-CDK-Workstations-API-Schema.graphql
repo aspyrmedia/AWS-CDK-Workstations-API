@@ -44,7 +44,7 @@ input TableIDFilterInput {
 }
 
 type WorkstationInstanceConnection {
-  items: [WorkstationInstance]
+  WorkstationInstances: [WorkstationInstance]
   nextToken: String
 }
 
